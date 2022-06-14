@@ -39,6 +39,23 @@ pub const MULTISIG_TYPE_HASH: H256 =
 pub const DAO_TYPE_HASH: H256 =
     h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
 
+// testnet
+pub const SIGHASH_TX_HASH: H256 =
+    h256!("0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37");
+
+pub const CROSSCHAIN_METADATA_TX_HASH: H256 =
+    h256!("0xbb08fe0727449919a5d9f7d8d3333d57d56730dcab9ccfd1ba6ca47c7c0ae9bf");
+pub const CROSSCHAIN_METADATA_CODE_HASH: H256 =
+    h256!("0x4f0eac26544fe1ed861711ba7cb9379c47b792c08a7ed1e22875e4d5a2a0fdc2");
+
+pub const CROSSCHAIN_REQUEST_TX_HASH: H256 =
+    h256!("0x654a8fa8f5cb500de807e83ae6dabdec6474f738299e28e1470c142f97d56b47");
+pub const CROSSCHAIN_REQUEST_CODE_HASH: H256 =
+    h256!("0xd8f9afaad8eb3e26a1ef2538bac91d68635502508358ae901941513bfe2edb1d");
+
+pub const CROSSCHAIN_LOCK_CODE_HASH: H256 =
+    h256!("0x33823dfb574bbfe453dde89eda4832c49abfb649be639c3c629c0657c7da77fb");
+
 /// anyone can pay script mainnet code hash, see:
 /// <https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0026-anyone-can-pay/0026-anyone-can-pay.md#notes>
 pub const ACP_TYPE_HASH_LINA: H256 =
