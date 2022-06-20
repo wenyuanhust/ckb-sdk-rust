@@ -1,4 +1,5 @@
 use std::error::Error as StdErr;
+use std::vec;
 
 use ckb_crypto::secp::Privkey;
 use ckb_hash::{blake2b_256, new_blake2b};
@@ -250,7 +251,7 @@ fn build_ckb_axon_tx(
     // crosschain-lock cell
     let output0 = CellOutput::new_builder()
         .lock(lock_script.clone())
-        .capacity(16_000_000_000.pack())
+        .capacity(7_300_000_000.pack())
         .build();
 
     let request_code_hash = Byte32::from_slice(CROSSCHAIN_REQUEST_CODE_HASH.as_bytes()).unwrap();
@@ -268,37 +269,45 @@ fn build_ckb_axon_tx(
         .build();
     // corsschain-request cell
     let output1 = CellOutput::new_builder()
-        .capacity(26_000_000_000.pack())
+        .capacity(17_800_000_000.pack())
         .lock(sender.clone())
         .type_(Some(request_script).pack())
         .build();
 
+    let mut outputs = vec![output0.clone(), output1.clone()];
+    let mut outputs_data = vec![
+        Bytes::new().pack(),
+        Bytes::new().pack(),
+    ];
     let input_cap: u64 = more_cells[0].output.capacity().unpack();
     let output0_cap: u64 = output0.capacity().unpack();
     let output1_cap: u64 = output1.capacity().unpack();
     let fee = 100_000_000;
+    println!(
+        "input {}, out0 {}, out1 cap {} fee {}, remain",
+        input_cap, output0_cap, output1_cap, fee
+    );
+
     let remain_cap: u64 = input_cap - output0_cap - output1_cap - fee;
     println!(
         "input {}, out0 {}, out1 cap {} fee {}, remain {}",
         input_cap, output0_cap, output1_cap, fee, remain_cap
     );
-    let output2 = CellOutput::new_builder()
+    let min_cap: u64 = 6_100_000_000;
+    if remain_cap > min_cap {
+        let output2 = CellOutput::new_builder()
         .lock(sender.clone())
         .capacity(remain_cap.pack())
         .build();
+        outputs.push(output2);  
+        outputs_data.push(Bytes::new().pack());
+    }
 
     let cell_deps = vec![contract_dep, secp256k1_data_dep, cs_req_dep];
-    let outputs_data = vec![
-        Bytes::new().pack(),
-        Bytes::new().pack(),
-        Bytes::new().pack(),
-    ];
 
     let tx = TransactionBuilder::default()
         .input(input)
-        .output(output0)
-        .output(output1)
-        .output(output2)
+        .outputs(outputs)
         .outputs_data(outputs_data)
         .cell_deps(cell_deps.clone())
         .build();
