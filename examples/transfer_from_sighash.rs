@@ -34,7 +34,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// The sender private key (hex string)
+    /// deploy crosschain data or ckb->axon crosschain tx
     #[clap(long, value_name = "TYPE", default_value = "0")]
     tx_type: u16,
 
@@ -135,7 +135,8 @@ fn build_deploy_crosschain_metadata_tx(
         query
     };
     let (more_cells, _more_capacity) = cell_collector.collect_live_cells(&query, false)?;
-    println!("capacity: {}, size: {}", _more_capacity, more_cells.len());
+    let input_cap: u64 = more_cells[0].output.capacity().unpack();
+    println!("capacity: {}, size: {}", input_cap, more_cells.len());
     let input = CellInput::new(more_cells[0].out_point.clone(), 0);
 
     // prepare metadata cell data
@@ -156,19 +157,28 @@ fn build_deploy_crosschain_metadata_tx(
 
     // crosschain-metadata type script
     let type_script = build_type_id_script(&input, 0);
-
     // output cell
     let output = CellOutput::new_builder()
         .lock(meta_script)
         .type_(type_script)
         .capacity(args.capacity.0.pack())
         .build();
+    let out_cap: u64 = output.capacity().unpack();
+    println!("out cap {}", out_cap);
+
+    let remain_cap = input_cap - out_cap - 100_000_000;
+    let output1 = CellOutput::new_builder()
+        .lock(sender)
+        .capacity(remain_cap.pack())
+        .build();
 
     let cell_deps = vec![crosschain_metadata_dep, secp256k1_data_dep];
+    let outputs_data = vec![metadata.as_bytes().pack(), Bytes::new().pack()];
     let tx = TransactionBuilder::default()
         .input(input)
         .output(output)
-        .output_data(metadata.as_bytes().pack())
+        .output(output1)
+        .outputs_data(outputs_data)
         .cell_deps(cell_deps.clone())
         .build();
 
@@ -206,7 +216,6 @@ fn build_ckb_axon_tx(
     // crosschain-request dep cell
     let crosschain_request_tx_hash =
         Byte32::from_slice(CROSSCHAIN_REQUEST_TX_HASH.as_bytes()).unwrap();
-
     let cs_req_out_point = OutPoint::new(crosschain_request_tx_hash, 0);
     let cs_req_dep = CellDep::new_builder()
         .out_point(cs_req_out_point.clone())
@@ -226,10 +235,6 @@ fn build_ckb_axon_tx(
     let (more_cells, _more_capacity) = cell_collector.collect_live_cells(&query, false)?;
     println!("capacity: {}, size: {}", _more_capacity, more_cells.len());
     let input = CellInput::new(more_cells[0].out_point.clone(), 0);
-    for cell in more_cells {
-        let cap = cell.output.capacity();
-        println!("{:?}, capacity: {:#x}", cell, cap);
-    }
 
     // crosschain-lock lock script
     // code hash of crosschain-lock
@@ -245,7 +250,7 @@ fn build_ckb_axon_tx(
     // crosschain-lock cell
     let output0 = CellOutput::new_builder()
         .lock(lock_script.clone())
-        .capacity(10_000_000_000.pack())
+        .capacity(16_000_000_000.pack())
         .build();
 
     let request_code_hash = Byte32::from_slice(CROSSCHAIN_REQUEST_CODE_HASH.as_bytes()).unwrap();
@@ -263,18 +268,37 @@ fn build_ckb_axon_tx(
         .build();
     // corsschain-request cell
     let output1 = CellOutput::new_builder()
-        .capacity(20_000_000_000.pack())
-        .lock(lock_script)
+        .capacity(26_000_000_000.pack())
+        .lock(sender.clone())
         .type_(Some(request_script).pack())
         .build();
 
+    let input_cap: u64 = more_cells[0].output.capacity().unpack();
+    let output0_cap: u64 = output0.capacity().unpack();
+    let output1_cap: u64 = output1.capacity().unpack();
+    let fee = 100_000_000;
+    let remain_cap: u64 = input_cap - output0_cap - output1_cap - fee;
+    println!(
+        "input {}, out0 {}, out1 cap {} fee {}, remain {}",
+        input_cap, output0_cap, output1_cap, fee, remain_cap
+    );
+    let output2 = CellOutput::new_builder()
+        .lock(sender.clone())
+        .capacity(remain_cap.pack())
+        .build();
+
     let cell_deps = vec![contract_dep, secp256k1_data_dep, cs_req_dep];
-    let outputs_data = vec![Bytes::new().pack(), Bytes::new().pack()];
+    let outputs_data = vec![
+        Bytes::new().pack(),
+        Bytes::new().pack(),
+        Bytes::new().pack(),
+    ];
 
     let tx = TransactionBuilder::default()
         .input(input)
         .output(output0)
         .output(output1)
+        .output(output2)
         .outputs_data(outputs_data)
         .cell_deps(cell_deps.clone())
         .build();
